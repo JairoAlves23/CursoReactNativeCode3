@@ -7,7 +7,8 @@ import
     ImageBackground,
     FlatList,
     TouchableOpacity,
-    Platform  
+    Platform,
+    AsyncStorage
 } from 'react-native'
 import moment from 'moment'
 import 'moment/locale/pt-br'
@@ -15,26 +16,35 @@ import todayImage from '../../assets/assets/imgs/today.jpg'
 import commonStyles from '../commonStyles'
 import Tasks from '../components/Tasks'
 import Icon from 'react-native-vector-icons/FontAwesome'
+import ActionButton from 'react-native-action-button'
+import AddTask from './AddTask' 
+
 
 export default class Agenda extends Component {
   
   state = {
-      tasks: [
-        { id: Math.random(), desc: 'Limpar a casa', estimateAt: new Date(), doneAt: new Date()},
-        { id: Math.random(), desc: 'Fazer curso de Angular', estimateAt: new Date(), doneAt: null},
-        { id: Math.random(), desc: 'Limpar a casa', estimateAt: new Date(), doneAt: new Date()},
-        { id: Math.random(), desc: 'Fazer curso de Angular', estimateAt: new Date(), doneAt: null},
-        { id: Math.random(), desc: 'Limpar a casa', estimateAt: new Date(), doneAt: new Date()},
-        { id: Math.random(), desc: 'Fazer curso de Angular', estimateAt: new Date(), doneAt: null},
-        { id: Math.random(), desc: 'Limpar a casa', estimateAt: new Date(), doneAt: new Date()},
-        { id: Math.random(), desc: 'Fazer curso de Angular', estimateAt: new Date(), doneAt: null},
-        { id: Math.random(), desc: 'Limpar a casa', estimateAt: new Date(), doneAt: new Date()},
-        { id: Math.random(), desc: 'Fazer curso de Angular', estimateAt: new Date(), doneAt: null},
-  ],
+      tasks: [],
      visibleTasks: [],
      showDoneTasks: true,
+     showAddTask: false,
 }
 
+addTask = task => {
+    const tasks = [...this.state.tasks]
+    tasks.push({
+        id: Math.random(),
+        desc: task.desc,
+        estimateAt: task.date,
+        doneAt: null
+    })
+
+    this.setState({ tasks, showAddTask: false }, this.filterTasks)
+}
+
+deleteTask =  id => {
+   const tasks = this.state.tasks.filter(task => task.id !== id)
+   this.setState({ tasks }, this.filterTasks)
+}
 
 //Função para filtrar as tarefas verificando as tarefas não feitas 
 //*const pending = task => task.doneAt === null* para uso da função filter visibleTasks = this.state.tasks.filter(pending)
@@ -48,6 +58,7 @@ filterTasks = () => {
         visibleTasks = this.state.tasks.filter(pending)
     }
     this.setState ({ visibleTasks })
+    AsyncStorage.setItem('tasks',JSON.stringify(this.state.tasks))
 }
 
 
@@ -67,13 +78,18 @@ toggleTask = id => {
     this.setState({ tasks }, this.filterTasks) 
 }
 
-componentDidMount = () => {
-    this.filterTasks()
+componentDidMount = async () => {
+    const data = await AsyncStorage.getItem('tasks')
+    const tasks = JSON.parse(data) || []
+    this.setState({ tasks }, this.filterTasks)
 }
   
   render() {
     return (
         <View style={styles.container}>
+        <AddTask isVisible={this.setState.showAddTask}
+            onSave={this.addTask}
+            onCancel={()=>{this.setState({ showAddTask:false })}} />
         <ImageBackground source={todayImage} style={styles.backgroud}>
             <View style={styles.iconBar}>
                 <TouchableOpacity onPress={this.toggleFilter}>
@@ -84,14 +100,18 @@ componentDidMount = () => {
             </View>
             <View style={styles.titleBar}>
                 <Text style={styles.title}>Hoje</Text>
-                <Text style={styles.subtitle}>{moment().locale('pt-br').format('ddd, D[de] MMMM')}</Text>
+                <Text style={styles.subtitle}>{moment().locale('pt-br').format('ddd, D [de] MMMM [de] YYYY')}</Text>
             </View>
         </ImageBackground>
              <View style={styles.tasksContainer}>
                 <FlatList data={this.state.visibleTasks} keyExtractor={item => `${item.id}`}
-                renderItem={({ item }) => <Tasks {...item} toggleTask={this.toggleTask} />} 
+                renderItem={({ item }) => <Tasks {...item} 
+                toggleTask={this.toggleTask} 
+                onDelete={this.onDelete}/>} 
                 ></FlatList>
              </View>
+             <ActionButton buttonColor={commonStyles.colors.today}
+             onPress={()=>{this.setState({ showAddTask })}} ></ActionButton>
       </View>
     );
   }
